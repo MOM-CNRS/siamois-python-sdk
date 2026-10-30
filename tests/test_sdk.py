@@ -197,5 +197,15 @@ class CreateApiTests(unittest.TestCase):
         self.assertEqual(f.id, "77")
 
 
+class ListEndpointsTests(unittest.TestCase):
+    def test_project_finds_use_the_finds_route(self):
+        """La liste des mobiliers d'un projet est `/projects/{id}/finds` (et non l'ancien `/mobiliers`)."""
+        page = {"data": [{"id": "5", "fullIdentifier": "M-5"}], "pagination": {"total": 1}}
+        c = client({("GET", "/projects/7/finds"): FakeResponse(200, page)})
+        result = c.finds(7)
+        self.assertEqual([f.id for f in result.items], ["5"])
+        self.assertEqual(c._session.calls[0][1], "/projects/7/finds")
+
+
 if __name__ == "__main__":
     unittest.main()

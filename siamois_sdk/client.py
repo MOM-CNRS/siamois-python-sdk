@@ -226,7 +226,7 @@ class SiamoisClient:
     def finds(self, project_id: Any, *, search: Optional[str] = None, sort: Optional[str] = None,
               fields: Optional[str] = "all", values_limit: int = 200, offset: int = 0,
               limit: int = 100) -> Page[Find]:
-        return self._get_page(f"/projects/{project_id}/mobiliers", Find.from_json,
+        return self._get_page(f"/projects/{project_id}/finds", Find.from_json,
                               search=search, sort=sort, fields=fields, valuesLimit=values_limit,
                               offset=offset, limit=limit)
 
