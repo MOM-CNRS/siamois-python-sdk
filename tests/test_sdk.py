@@ -191,10 +191,26 @@ class CreateApiTests(unittest.TestCase):
         geom = {"type": "Point", "srid": 4326, "coordinates": [1, 2]}
         ru = c.create_recording_unit(7, 42, answers={"1": {"value": "x"}}, geom=geom)
         f = c.create_find(77, 5)
+        c.create_find(77, 5, geom=geom)
         self.assertEqual(ru.full_identifier, "UE-77")
         self.assertEqual(bodies[0], {"projectId": "7", "typeId": "42", "answers": {"1": {"value": "x"}}, "geom": geom})
         self.assertEqual(bodies[1], {"recordingUnitId": "77", "typeId": "5"})
         self.assertEqual(f.id, "77")
+        self.assertEqual(bodies[2], {"recordingUnitId": "77", "typeId": "5", "geom": geom})
+
+    def test_update_find_geometry(self):
+        bodies = []
+
+        def patch(params, body):
+            bodies.append(body)
+            return FakeResponse(200, {"data": {"id": "5"}})
+
+        c = client({("PATCH", "/finds/5"): patch})
+        line = {"type": "LineString", "srid": 2154, "coordinates": [[0, 0], [1, 1]]}
+        c.update_find(5, geom=line)
+        c.update_find(5, geom=None)
+        c.update_find(5, validated="COMPLETE")
+        self.assertEqual(bodies, [{"geom": line}, {"geom": None}, {"validated": "COMPLETE"}])
 
 
 class ListEndpointsTests(unittest.TestCase):

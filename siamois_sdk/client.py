@@ -254,20 +254,25 @@ class SiamoisClient:
         """Comme `recording_unit_types`, pour le mobilier."""
         return self._types(f"/projects/{project_id}/find-types")
 
-    def create_find(self, recording_unit_id: Any, type_id: Any, *, answers: Optional[Dict[str, Any]] = None) -> Find:
-        """POST mobilier rattaché à une UE. L'API n'accepte pas de géométrie à la création."""
+    def create_find(self, recording_unit_id: Any, type_id: Any, *, answers: Optional[Dict[str, Any]] = None,
+                    geom: Optional[Dict[str, Any]] = None) -> Find:
+        """POST mobilier rattaché à une UE. ``geom`` : GeoJSON + ``srid`` (tout type de géométrie)."""
         payload: Dict[str, Any] = {"recordingUnitId": str(recording_unit_id), "typeId": str(type_id)}
         if answers:
             payload["answers"] = answers
+        if geom:
+            payload["geom"] = geom
         body, _ = self._request("POST", "/finds", json=payload)
         return Find.from_json(self._data(body))
 
-    def update_find(self, find_id: Any, *, answers: Optional[Dict[str, Any]] = None,
+    def update_find(self, find_id: Any, *, answers: Optional[Dict[str, Any]] = None, geom: Any = ...,
                     validated: Optional[str] = None) -> Find:
-        """PATCH mobilier. L'API ne permet pas de modifier la géométrie d'un mobilier."""
+        """PATCH mobilier. ``geom=None`` supprime la géométrie, ``geom=...`` (défaut) la laisse inchangée."""
         payload: Dict[str, Any] = {}
         if answers:
             payload["answers"] = answers
+        if geom is not ...:
+            payload["geom"] = geom
         if validated is not None:
             payload["validated"] = validated
         body, _ = self._request("PATCH", f"/finds/{find_id}", json=payload)
