@@ -2,7 +2,7 @@ import json
 import unittest
 
 from siamois_sdk import (
-    AuthenticationError, ConflictError, NetworkError, SiamoisClient, build_patch_answers, parse_form,
+    AuthenticationError, ConflictError, InvalidResponseError, NetworkError, SiamoisClient, build_patch_answers, parse_form,
 )
 from siamois_sdk.forms import display_value, diff_multi
 import requests
@@ -205,6 +205,26 @@ class ListEndpointsTests(unittest.TestCase):
         result = c.finds(7)
         self.assertEqual([f.id for f in result.items], ["5"])
         self.assertEqual(c._session.calls[0][1], "/projects/7/finds")
+
+    def test_finds_fall_back_to_old_route_and_error_names_the_path(self):
+        class Html(FakeResponse):
+            def __init__(self):
+                super().__init__(200, None)
+                self.content = b"<html>login</html>"
+                self.text = "<html>login</html>"
+                self.headers = {"Content-Type": "text/html"}
+
+            def json(self):
+                raise ValueError("pas du json")
+
+        page = {"data": [{"id": "5"}], "pagination": {"total": 1}}
+        c = client({("GET", "/projects/7/finds"): Html(), ("GET", "/projects/7/mobiliers"): FakeResponse(200, page)})
+        self.assertEqual([f.id for f in c.finds(7).items], ["5"])
+        c = client({("GET", "/projects/7/finds"): Html(), ("GET", "/projects/7/mobiliers"): Html()})
+        with self.assertRaises(InvalidResponseError) as ctx:
+            c.finds(7)
+        self.assertIn("/projects/7/mobiliers", ctx.exception.user_message)
+        self.assertIn("text/html", ctx.exception.user_message)
 
 
 if __name__ == "__main__":

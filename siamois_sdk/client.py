@@ -12,6 +12,7 @@ from .errors import (
     AuthenticationError,
     InvalidResponseError,
     NetworkError,
+    NotFoundError,
     SiamoisError,
     error_from_response,
 )
@@ -82,7 +83,11 @@ class SiamoisClient:
                 body = resp.json()
             except ValueError:
                 if resp.status_code < 400:
-                    raise InvalidResponseError("Réponse non JSON", resp.status_code)
+                    ctype = (getattr(resp, "headers", None) or {}).get("Content-Type", "?")
+                    start = str(getattr(resp, "text", "") or "")[:120].replace("\n", " ")
+                    detail = f"Réponse non JSON sur {method} {path} (HTTP {resp.status_code}, {ctype}) : {start!r}"
+                    log.warning(detail)
+                    raise InvalidResponseError(detail, resp.status_code)
         if resp.status_code >= 400:
             log.warning("%s %s -> HTTP %s : %s", method, path, resp.status_code, str(body)[:500])
             raise error_from_response(resp.status_code, body)
@@ -226,9 +231,13 @@ class SiamoisClient:
     def finds(self, project_id: Any, *, search: Optional[str] = None, sort: Optional[str] = None,
               fields: Optional[str] = "all", values_limit: int = 200, offset: int = 0,
               limit: int = 100) -> Page[Find]:
-        return self._get_page(f"/projects/{project_id}/finds", Find.from_json,
-                              search=search, sort=sort, fields=fields, valuesLimit=values_limit,
-                              offset=offset, limit=limit)
+        args = dict(search=search, sort=sort, fields=fields, valuesLimit=values_limit, offset=offset, limit=limit)
+        try:
+            return self._get_page(f"/projects/{project_id}/finds", Find.from_json, **args)
+        except (InvalidResponseError, NotFoundError):
+            # serveurs plus anciens : la liste du projet s'appelait /mobiliers
+            log.info("/projects/%s/finds indisponible : essai de /mobiliers", project_id)
+            return self._get_page(f"/projects/{project_id}/mobiliers", Find.from_json, **args)
 
     def find(self, find_id: Any) -> Find:
         return Find.from_json(self._data(self._get(f"/finds/{find_id}")))
