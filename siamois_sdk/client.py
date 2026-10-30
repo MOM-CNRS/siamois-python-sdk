@@ -190,6 +190,11 @@ class SiamoisClient:
 
     def recording_unit_forms(self, project_id: Any) -> Tuple[FormDefinition, Dict[str, FormDefinition]]:
         """(formulaire par défaut, {type_id: formulaire du type}) pour les UE d'un projet."""
+        return self._types(f"/projects/{project_id}/recording-unit-types")[:2]
+
+    def recording_unit_types(self, project_id: Any):
+        """(formulaire par défaut, {type_id: formulaire}, [types {id, resolvedLabel}]) : le type n'est pas un champ du
+        formulaire (il vit dans l'en-tête de la fiche), sa liste vient de cette réponse."""
         return self._types(f"/projects/{project_id}/recording-unit-types")
 
     def create_recording_unit(self, project_id: Any, type_id: Any, *, answers: Optional[Dict[str, Any]] = None,
@@ -243,6 +248,10 @@ class SiamoisClient:
         return Find.from_json(self._data(self._get(f"/finds/{find_id}")))
 
     def find_forms(self, project_id: Any) -> Tuple[FormDefinition, Dict[str, FormDefinition]]:
+        return self._types(f"/projects/{project_id}/find-types")[:2]
+
+    def find_types(self, project_id: Any):
+        """Comme `recording_unit_types`, pour le mobilier."""
         return self._types(f"/projects/{project_id}/find-types")
 
     def create_find(self, recording_unit_id: Any, type_id: Any, *, answers: Optional[Dict[str, Any]] = None) -> Find:
@@ -286,7 +295,7 @@ class SiamoisClient:
 
     # ------------------------------------------------------------------ interne
 
-    def _types(self, path: str) -> Tuple[FormDefinition, Dict[str, FormDefinition]]:
+    def _types(self, path: str):
         body = self._get(path)
         if not isinstance(body, dict):
             raise InvalidResponseError()
@@ -295,9 +304,14 @@ class SiamoisClient:
         default_form = parse_form_bundle(default.get("formBundle") or default.get("form"),
                                          default.get("fields") or top_fields)
         by_type: Dict[str, FormDefinition] = {}
+        concepts: List[Dict[str, Any]] = []
         for t in body.get("data") or []:
             tid = t.get("id") or (t.get("concept") or {}).get("id")
             if tid is None:
                 continue
             by_type[str(tid)] = parse_form_bundle(t.get("formBundle"), t.get("fields") or top_fields)
-        return default_form, by_type
+            c = t.get("concept") or {}
+            label = c.get("resolvedLabel") or c.get("label")
+            if label:
+                concepts.append({"id": str(tid), "resolvedLabel": label})
+        return default_form, by_type, concepts

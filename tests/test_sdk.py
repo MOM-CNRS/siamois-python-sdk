@@ -227,5 +227,20 @@ class ListEndpointsTests(unittest.TestCase):
         self.assertIn("text/html", ctx.exception.user_message)
 
 
+class TypeListTests(unittest.TestCase):
+    def test_types_come_with_their_labels(self):
+        body = {"fields": {}, "_default": {}, "data": [
+            {"id": "10", "concept": {"id": "10", "resolvedLabel": "Fait"}},
+            {"id": "11", "concept": {"id": "11", "label": "Couche"}},
+            {"id": "12", "concept": {"id": "12"}}]}
+        c = client({("GET", "/projects/7/recording-unit-types"): FakeResponse(200, body),
+                    ("GET", "/projects/7/find-types"): FakeResponse(200, body)})
+        _, by_type, concepts = c.recording_unit_types(7)
+        self.assertEqual(concepts, [{"id": "10", "resolvedLabel": "Fait"}, {"id": "11", "resolvedLabel": "Couche"}])
+        self.assertEqual(sorted(by_type), ["10", "11", "12"])
+        self.assertEqual(len(c.recording_unit_forms(7)), 2)  # signature historique conservée
+        self.assertEqual(len(c.find_types(7)), 3)
+
+
 if __name__ == "__main__":
     unittest.main()
